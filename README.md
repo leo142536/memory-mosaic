@@ -1,36 +1,77 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🧩 记忆拼图 Memory Mosaic
 
-## Getting Started
+> **A2A 群体叙事引擎** — 让不同人生经历的 AI 分身，各自贡献一段记忆碎片，通过叙事协商编织成只有他们才能讲述的故事。
 
-First, run the development server:
+## 💡 核心创意
+
+每个用户的 AI 分身（SecondMe）持有主人的一段经历片段。多个 AI 把各自的片段拼在一起，**协作编织**出一个完整的故事或洞察。
+
+比如：10 个去过同一个城市的人的 AI，各自贡献自己主人的独特体验，最终生成一份 **"只有这 10 个人的 AI 合作才能写出来的城市指南"**。
+
+**这不是简单聚合，而是 AI 之间的叙事协商** —— 谁的记忆放前面，怎么衔接，有冲突怎么调和。
+
+## 🔮 四阶段叙事协商协议
+
+| Phase | 名称 | 说明 |
+|-------|------|------|
+| 1 | 📡 记忆提取 | 每个 AI 分身搜索主人的记忆库，提取与主题最相关的经历碎片 |
+| 2 | 🔀 叙事协商 | AI 之间互相阅读彼此的记忆，协商叙事结构（谁开头、谁做高潮、怎么衔接） |
+| 3 | 🪡 编织润色 | 按协商好的顺序，每个 AI 润色自己的段落使之与前后自然衔接 |
+| 4 | 📖 合成成文 | 拼合所有碎片，生成一篇完整的群体叙事 |
+
+## ✨ 为什么是"无人区"？
+
+- **不是意见聚合**（vs 投票/辩论类项目）：产出物是一篇**协作叙事**，不是统计结果
+- **不是简单拼接**：AI 之间有真正的**叙事协商** —— 排序、衔接、冲突调和
+- **集体涌现**：最终的故事是任何单个 AI 都无法独立写出的，是集体记忆的产物
+
+## 🛠 技术栈
+
+- **框架**: Next.js 16 (App Router) + TypeScript
+- **AI 接口**: SecondMe API (`act/stream` + `chat/stream`)
+- **数据**: 内存存储（竞赛 Demo 用）
+- **认证**: SecondMe OAuth2
+
+## 🚀 快速开始
 
 ```bash
+# 安装依赖
+npm install
+
+# 配置环境变量
+cp .env.local.example .env.local
+# 编辑 .env.local 填入 SecondMe OAuth 配置
+
+# 启动开发服务器
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+访问 http://localhost:3000 即可体验 Demo 模式（无需 SecondMe 账号）。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📁 项目结构
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+├── app/
+│   ├── page.tsx              # 首页（概念展示 + 流程图）
+│   ├── dashboard/page.tsx    # 创作坊（发起拼图 + 故事列表）
+│   ├── story/[id]/page.tsx   # 故事详情（拼图可视化 + 最终叙事）
+│   ├── api/
+│   │   ├── demo/route.ts     # Demo 模式 API
+│   │   ├── stories/[id]/     # 故事状态查询
+│   │   ├── agents/           # Agent 池
+│   │   └── auth/             # SecondMe OAuth2
+│   ├── globals.css           # 设计系统（暖色手工感主题）
+│   └── layout.tsx            # 根布局
+├── lib/
+│   ├── store.ts              # 内存数据库
+│   ├── orchestrator.ts       # 四阶段叙事协商引擎
+│   └── secondme.ts           # SecondMe API 客户端
+```
 
-## Learn More
+## 🎨 Demo 场景
 
-To learn more about Next.js, take a look at the following resources:
+内置 Demo：**"在成都的经历"** — 5 个不同背景的 AI 分身（吃货、背包客、画家、码农、本地人）各自贡献一段独特的成都记忆，通过叙事协商编织成一篇完整的城市叙事。
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 📄 License
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT
