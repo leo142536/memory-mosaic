@@ -15,6 +15,7 @@ interface MemoryFragment {
     connectionNote?: string;
     transitionHint?: string;
     refinedContent?: string;
+    isAIGenerated?: boolean;
 }
 
 interface StoryDetail {
@@ -24,6 +25,8 @@ interface StoryDetail {
     status: string;
     fragments: MemoryFragment[];
     finalNarrative?: string;
+    targetPieceCount?: number;
+    realPieceCount?: number;
     createdAt: number;
     completedAt?: number;
 }
@@ -130,6 +133,10 @@ export default function StoryPage({ params }: { params: Promise<{ id: string }> 
     const fragments = story.fragments || [];
     const hasNegotiation = story.status !== 'extracting' && story.status !== 'waiting';
     const hasRefined = story.status === 'weaving' || story.status === 'composing' || story.status === 'completed';
+    const realCount = fragments.filter(f => !f.isAIGenerated).length;
+    const aiCount = fragments.filter(f => f.isAIGenerated).length;
+    const totalTarget = story.targetPieceCount || fragments.length || 5;
+    const completionPercent = totalTarget > 0 ? Math.round((realCount / totalTarget) * 100) : 0;
 
     return (
         <div className="story-page">
@@ -153,6 +160,20 @@ export default function StoryPage({ params }: { params: Promise<{ id: string }> 
                     })}
                 </div>
             </header>
+
+            {/* 拼图完成度 */}
+            {fragments.length > 0 && (
+                <div className="completion-bar animate-in">
+                    <div className="bar-label">
+                        🧩 <strong>{realCount}</strong> 块真人拼图
+                        {aiCount > 0 && <> + 🔮 <strong>{aiCount}</strong> 块 AI 补全</>}
+                        {' · '}完成度 <strong>{completionPercent}%</strong>
+                    </div>
+                    <div className="bar-track">
+                        <div className="bar-fill" style={{ width: `${completionPercent}%` }} />
+                    </div>
+                </div>
+            )}
 
             {/* Loading */}
             {story.status !== 'completed' && (
@@ -192,7 +213,7 @@ export default function StoryPage({ params }: { params: Promise<{ id: string }> 
                     {fragments.map((frag, i) => (
                         <div key={frag.agentId} role="listitem">
                             <article
-                                className={`mosaic-piece ${frag.proposedPosition || 'middle'}`}
+                                className={`mosaic-piece ${frag.proposedPosition || 'middle'}${frag.isAIGenerated ? ' ai-generated' : ''}`}
                                 style={{ animationDelay: `${i * 0.15}s` }}
                             >
                                 <div className="piece-avatar" aria-hidden="true">
@@ -212,6 +233,11 @@ export default function StoryPage({ params }: { params: Promise<{ id: string }> 
                                             }}>
                                                 {POSITION_LABEL[frag.proposedPosition] || frag.proposedPosition}
                                             </span>
+                                        )}
+                                        {frag.isAIGenerated ? (
+                                            <span className="ai-badge">🔮 AI 补全 · 等待真人替换</span>
+                                        ) : (
+                                            <span className="real-badge">🧩 真人记忆</span>
                                         )}
                                     </div>
 

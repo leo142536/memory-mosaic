@@ -30,6 +30,7 @@ export interface MemoryFragment {
     connectionNote?: string;
     transitionHint?: string;
     refinedContent?: string;
+    isAIGenerated?: boolean;  // true = AI补全的想象视角
 }
 
 export interface Story {
@@ -42,6 +43,8 @@ export interface Story {
     participantIds: string[];
     fragments: MemoryFragment[];
     finalNarrative?: string;
+    targetPieceCount: number;   // 目标拼图数量
+    realPieceCount: number;     // 真人拼图数量
     createdAt: number;
     completedAt?: number;
 }

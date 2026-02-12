@@ -1,6 +1,6 @@
 /**
- * Demo 模式 API — 记忆拼图
- * 模拟 5 个去过成都的 AI 分身拼出一份城市叙事
+ * Demo 模式 API — 弹性拼图机制
+ * 支持 1~5 个真人 Agent，不足 5 块时 AI 自动补全
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createStory, updateStory, getAllAgents, type Story, type MemoryFragment } from '@/lib/store';
@@ -10,8 +10,9 @@ function sleep(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// 预设 Demo 记忆片段
-const DEMO_FRAGMENTS: Record<string, {
+// ─── 全部 5 个预设片段（带 isAIGenerated 标记） ───
+
+interface DemoPreset {
     title: string;
     content: string;
     emotion: string;
@@ -21,7 +22,9 @@ const DEMO_FRAGMENTS: Record<string, {
     connectionNote: string;
     transitionHint: string;
     refinedContent: string;
-}> = {
+}
+
+const DEMO_FRAGMENTS: Record<string, DemoPreset> = {
     'demo-local': {
         title: '春熙路的变迁',
         content: '作为土生土长的成都人，我见证了春熙路从满是自行车的老街变成今天的IFS商圈。小时候最爱跟外婆去春熙路的老百货大楼买年货，那时候路边还有捏糖人的手艺人。现在每次路过，看到爬在楼上的大熊猫，都会想起那些再也回不去的下午。',
@@ -79,9 +82,12 @@ const DEMO_FRAGMENTS: Record<string, {
     },
 };
 
+// 叙事顺序：local → foodie → backpacker → artist → techie
+const CANONICAL_ORDER = ['demo-local', 'demo-foodie', 'demo-backpacker', 'demo-artist', 'demo-techie'];
+
 export async function POST(request: NextRequest) {
     const body = await request.json();
-    const { theme, description } = body;
+    const { theme, description, realAgentCount = 2 } = body;
 
     if (!theme) {
         return NextResponse.json({ error: '请输入叙事主题' }, { status: 400 });
@@ -89,6 +95,10 @@ export async function POST(request: NextRequest) {
 
     seedDemoAgents();
     const allAgents = getAllAgents();
+
+    // 根据 realAgentCount 决定哪些是真人、哪些是 AI 补全
+    const clampedCount = Math.max(1, Math.min(realAgentCount, allAgents.length));
+    const realIds = new Set(CANONICAL_ORDER.slice(0, clampedCount));
 
     const story: Story = {
         id: `story-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -99,6 +109,8 @@ export async function POST(request: NextRequest) {
         status: 'waiting',
         participantIds: allAgents.map(a => a.id),
         fragments: [],
+        targetPieceCount: CANONICAL_ORDER.length,
+        realPieceCount: clampedCount,
         createdAt: Date.now(),
     };
 
@@ -107,26 +119,52 @@ export async function POST(request: NextRequest) {
     // 异步模拟叙事流程
     (async () => {
         try {
-            // Phase 1: 记忆提取
+            // Phase 1: 记忆提取（真人先出现，AI 补全后出现）
             updateStory(story.id, { status: 'extracting' });
             const fragments: MemoryFragment[] = [];
 
-            for (const agent of allAgents) {
+            // 先提取真人记忆
+            for (const agentId of CANONICAL_ORDER) {
+                if (!realIds.has(agentId)) continue;
+                const agent = allAgents.find(a => a.id === agentId);
+                const demo = DEMO_FRAGMENTS[agentId];
+                if (!agent || !demo) continue;
+
                 await sleep(1200);
-                const demo = DEMO_FRAGMENTS[agent.id];
-                if (demo) {
-                    fragments.push({
-                        agentId: agent.id,
-                        agentName: agent.name,
-                        agentAvatar: agent.avatarUrl,
-                        title: demo.title,
-                        content: demo.content,
-                        emotion: demo.emotion,
-                        timeHint: demo.timeHint,
-                        uniqueDetail: demo.uniqueDetail,
-                    });
-                    updateStory(story.id, { fragments: [...fragments] });
-                }
+                fragments.push({
+                    agentId: agent.id,
+                    agentName: agent.name,
+                    agentAvatar: agent.avatarUrl,
+                    title: demo.title,
+                    content: demo.content,
+                    emotion: demo.emotion,
+                    timeHint: demo.timeHint,
+                    uniqueDetail: demo.uniqueDetail,
+                    isAIGenerated: false,
+                });
+                updateStory(story.id, { fragments: [...fragments] });
+            }
+
+            // 再 AI 补全剩余拼图
+            for (const agentId of CANONICAL_ORDER) {
+                if (realIds.has(agentId)) continue;
+                const agent = allAgents.find(a => a.id === agentId);
+                const demo = DEMO_FRAGMENTS[agentId];
+                if (!agent || !demo) continue;
+
+                await sleep(800); // AI 补全比真人快
+                fragments.push({
+                    agentId: agent.id,
+                    agentName: `${agent.name}（AI 补全）`,
+                    agentAvatar: agent.avatarUrl,
+                    title: demo.title,
+                    content: demo.content,
+                    emotion: demo.emotion,
+                    timeHint: demo.timeHint,
+                    uniqueDetail: demo.uniqueDetail,
+                    isAIGenerated: true,
+                });
+                updateStory(story.id, { fragments: [...fragments] });
             }
 
             // Phase 2: 叙事协商
@@ -134,7 +172,8 @@ export async function POST(request: NextRequest) {
             await sleep(2000);
 
             const negotiated = fragments.map(f => {
-                const demo = DEMO_FRAGMENTS[f.agentId];
+                const baseId = f.agentId;
+                const demo = DEMO_FRAGMENTS[baseId];
                 return {
                     ...f,
                     proposedPosition: demo?.proposedPosition || 'middle',
@@ -164,16 +203,20 @@ export async function POST(request: NextRequest) {
             updateStory(story.id, { status: 'composing' });
             await sleep(1500);
 
-            const parts = woven.map((f, i) => {
-                const content = f.refinedContent || f.content;
-                return `### ${f.agentName}　_${f.timeHint}_
+            const realCount = woven.filter(f => !f.isAIGenerated).length;
+            const aiCount = woven.filter(f => f.isAIGenerated).length;
 
-${content}`;
+            const parts = woven.map(f => {
+                const content = f.refinedContent || f.content;
+                const label = f.isAIGenerated ? '🔮' : '🧩';
+                return `### ${label} ${f.agentName}　_${f.timeHint}_\n\n${content}`;
             });
+
+            const completionPercent = Math.round((realCount / woven.length) * 100);
 
             const finalNarrative = `# ${story.theme}
 
-_${woven.length} 段记忆，${woven.length} 种人生，编织成一个只有他们才能讲述的故事_
+_${woven.length} 段记忆，${realCount} 块真人拼图 + ${aiCount} 块 AI 补全 · 完成度 ${completionPercent}%_
 
 ---
 
@@ -181,7 +224,7 @@ ${parts.join('\n\n---\n\n')}
 
 ---
 
-> 本叙事由 ${woven.length} 位 AI 分身通过「记忆拼图」协作生成。每段记忆来自真实的人生经历，经过叙事协商编排成连贯的故事。没有哪一个 AI 能独自写出这个叙事——它是集体记忆的产物。`;
+> 🧩 本叙事中 ${realCount} 段来自真人 AI 分身的真实记忆，${aiCount} 段由 AI 想象补全。当更多真人加入替换 🔮 拼图时，叙事会变得更加真实和丰富。`;
 
             updateStory(story.id, {
                 fragments: woven,

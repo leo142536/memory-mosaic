@@ -40,6 +40,7 @@ export default function DashboardPage() {
     const [stories, setStories] = useState<StoryItem[]>([]);
     const [theme, setTheme] = useState('');
     const [description, setDescription] = useState('');
+    const [realAgentCount, setRealAgentCount] = useState(2);
     const [submitting, setSubmitting] = useState(false);
     const isDemo = true;
 
@@ -83,7 +84,7 @@ export default function DashboardPage() {
             const res = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ theme, description }),
+                body: JSON.stringify({ theme, description, realAgentCount }),
             });
             const data = await res.json();
             if (data.storyId) {
@@ -132,6 +133,27 @@ export default function DashboardPage() {
                             value={description}
                             onChange={e => setDescription(e.target.value)}
                         />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="agent-count">真人参与者数量：<strong>{realAgentCount}</strong> / 5</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>1</span>
+                            <input
+                                id="agent-count"
+                                type="range"
+                                name="realAgentCount"
+                                min={1}
+                                max={5}
+                                value={realAgentCount}
+                                onChange={e => setRealAgentCount(Number(e.target.value))}
+                                style={{ flex: 1, accentColor: 'var(--primary)' }}
+                            />
+                            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>5</span>
+                        </div>
+                        <div className="hint">
+                            {realAgentCount === 5 ? '全部真人记忆，无需 AI 补全' :
+                                `${realAgentCount} 块真人拼图 + ${5 - realAgentCount} 块 AI 补全（可被新加入的真人替换）`}
+                        </div>
                     </div>
                     <div className="form-actions">
                         <button type="submit" className="btn btn-primary" disabled={submitting || !theme.trim()}>
